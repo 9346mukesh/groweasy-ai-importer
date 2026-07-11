@@ -1,5 +1,6 @@
 const { parseLeads } = require("../services/leadParser.service");
 const { parseCsvBuffer } = require("../services/csvParser.service");
+const { stripToCrmRecord } = require("../utils/leadValidation");
 
 function validateImportPayload(body) {
   const { fileName, headers, rows } = body ?? {};
@@ -93,7 +94,11 @@ async function importCsv(req, res) {
         totalImported: result.totalImported,
         totalSkipped: result.totalSkipped,
         mappingMethod: result.mappingMethod,
+        model: result.model ?? null,
+        batchSize: result.batchSize ?? null,
+        batchCount: result.batchCount ?? null,
         headers,
+        records: result.imported.map(stripToCrmRecord),
         imported: result.imported,
         skipped: result.skipped,
       },

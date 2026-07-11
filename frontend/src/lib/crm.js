@@ -1,14 +1,31 @@
 export const CRM_FIELDS = [
-  { key: "rowIndex", label: "#" },
-  { key: "firstName", label: "First Name" },
-  { key: "lastName", label: "Last Name" },
+  { key: "created_at", label: "Created At" },
+  { key: "name", label: "Name" },
   { key: "email", label: "Email" },
-  { key: "phone", label: "Phone" },
+  { key: "country_code", label: "Country Code" },
+  { key: "mobile_without_country_code", label: "Mobile" },
   { key: "company", label: "Company" },
-  { key: "jobTitle", label: "Job Title" },
   { key: "city", label: "City" },
   { key: "state", label: "State" },
-  { key: "source", label: "Source" },
+  { key: "country", label: "Country" },
+  { key: "lead_owner", label: "Lead Owner" },
+  { key: "crm_status", label: "CRM Status" },
+  { key: "crm_note", label: "CRM Note" },
+  { key: "data_source", label: "Data Source" },
+  { key: "possession_time", label: "Possession Time" },
+  { key: "description", label: "Description" },
+];
+
+export const CRM_TABLE_COLUMNS = [
+  { key: "rowIndex", label: "#" },
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "mobile_without_country_code", label: "Mobile" },
+  { key: "company", label: "Company" },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "data_source", label: "Source" },
+  { key: "crm_status", label: "Status" },
 ];
 
 export const SKIPPED_FIELDS = [

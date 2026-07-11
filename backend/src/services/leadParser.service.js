@@ -1,76 +1,35 @@
 const { CRM_FIELD_KEYS } = require("../constants/crmFields");
+const { extractLeadsWithAi } = require("./aiExtraction.service");
 const { getColumnMapping } = require("./aiMapping.service");
+const {
+  cleanValue,
+  getSkipReason,
+  normalizeLead,
+} = require("../utils/leadValidation");
 
-function cleanValue(value) {
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  return String(value).trim();
-}
-
-function splitFullName(fullName) {
-  const parts = cleanValue(fullName).split(/\s+/).filter(Boolean);
-
-  if (parts.length === 0) {
-    return { firstName: "", lastName: "" };
-  }
-
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: "" };
-  }
-
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(" "),
-  };
+function buildNameFromParts(firstName, lastName) {
+  return [cleanValue(firstName), cleanValue(lastName)].filter(Boolean).join(" ");
 }
 
 function extractLeadFromRow(row, mapping, rowIndex) {
-  const lead = {};
+  const lead = { rowIndex: rowIndex + 1 };
 
   for (const field of CRM_FIELD_KEYS) {
     const sourceHeader = mapping[field];
     lead[field] = sourceHeader ? cleanValue(row[sourceHeader]) : "";
   }
 
-  if (mapping.fullName) {
-    const { firstName, lastName } = splitFullName(row[mapping.fullName]);
-
-    if (!lead.firstName) {
-      lead.firstName = firstName;
-    }
-
-    if (!lead.lastName) {
-      lead.lastName = lastName;
-    }
+  if (!lead.name) {
+    lead.name = buildNameFromParts(
+      mapping._firstName ? row[mapping._firstName] : "",
+      mapping._lastName ? row[mapping._lastName] : ""
+    );
   }
 
-  return {
-    rowIndex: rowIndex + 1,
-    ...lead,
-  };
+  return normalizeLead(lead, lead.rowIndex);
 }
 
-function getSkipReason(lead) {
-  const hasEmail = Boolean(lead.email);
-  const hasPhone = Boolean(lead.phone);
-  const hasName = Boolean(lead.firstName || lead.lastName);
-
-  if (!hasEmail && !hasPhone && !hasName) {
-    return "Missing email, phone, and name";
-  }
-
-  if (lead.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email)) {
-    if (!hasPhone && !hasName) {
-      return "Invalid email and no other contact info";
-    }
-  }
-
-  return null;
-}
-
-async function parseLeads(headers, rows) {
+async function parseLeadsHeuristic(headers, rows) {
   const { mapping, method } = await getColumnMapping(headers, rows);
   const imported = [];
   const skipped = [];
@@ -101,4 +60,18 @@ async function parseLeads(headers, rows) {
   };
 }
 
-module.exports = { parseLeads };
+async function parseLeads(headers, rows) {
+  try {
+    const aiResult = await extractLeadsWithAi(headers, rows);
+
+    if (aiResult) {
+      return aiResult;
+    }
+  } catch (error) {
+    console.error("AI batch extraction failed, falling back to heuristic:", error.message);
+  }
+
+  return parseLeadsHeuristic(headers, rows);
+}
+
+module.exports = { parseLeads, parseLeadsHeuristic };

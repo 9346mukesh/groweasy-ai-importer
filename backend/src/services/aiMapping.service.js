@@ -1,58 +1,63 @@
-const OpenAI = require("openai");
-const { CRM_FIELD_KEYS } = require("../constants/crmFields");
+const {
+  CRM_FIELD_KEYS,
+  getCrmFieldSchemaForPrompt,
+} = require("../constants/crmFields");
+
+const {
+  getGroqClient,
+  getGroqModel,
+  isGroqConfigured,
+} = require("../config/groq");
+
 const { buildHeuristicMapping } = require("./columnMatcher.service");
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-
-  if (!apiKey || apiKey === "your_openrouter_api_key") {
-    return null;
-  }
-
-  return new OpenAI({
-    apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-  });
-}
-
 function buildMappingPrompt(headers, sampleRows) {
-  return `You are a CRM data mapping assistant for GrowEasy CRM.
+  return `
+You are an expert CRM field mapping assistant.
 
-Given CSV column headers and sample rows, map each GrowEasy CRM field to the best matching CSV column header.
+Your task is to map arbitrary CSV columns into GrowEasy CRM fields.
 
-CRM fields: ${CRM_FIELD_KEYS.join(", ")}
+CSV column names are NOT fixed.
+Infer the meaning of each column using BOTH the header and sample values.
 
-Rules:
-- Return ONLY valid JSON, no markdown.
-- Use exact CSV header strings as values.
-- Use null when no suitable column exists.
-- Map "full name" style columns to firstName only if you can infer split; otherwise map to firstName with the full value and leave lastName null.
-- Prefer the most specific column for each field.
+GrowEasy CRM Fields
 
-CSV headers:
+${getCrmFieldSchemaForPrompt()}
+
+Rules
+
+Rules
+
+1. Return ONLY valid JSON.
+2. Do NOT return markdown.
+3. Use the EXACT CSV header names.
+4. Never invent a CSV header.
+5. If no matching column exists, return null.
+6. Infer mappings using BOTH:
+  - Column names
+  - Sample values
+7. Prefer semantic meaning over exact wording.
+8. Only map a column when confidence is high.
+9. If confidence is low, return null.
+10. Never guess mappings.
+11. Each CSV column should map to at most one CRM field whenever possible.
+
+CSV Headers
+
 ${JSON.stringify(headers)}
 
-Sample rows:
+Sample Rows
+
 ${JSON.stringify(sampleRows.slice(0, 3), null, 2)}
 
-Respond with this JSON shape:
+Return EXACTLY:
+
 {
   "mapping": {
-    "firstName": "exact header or null",
-    "lastName": "exact header or null",
-    "email": "exact header or null",
-    "phone": "exact header or null",
-    "company": "exact header or null",
-    "jobTitle": "exact header or null",
-    "address": "exact header or null",
-    "city": "exact header or null",
-    "state": "exact header or null",
-    "zip": "exact header or null",
-    "country": "exact header or null",
-    "source": "exact header or null",
-    "notes": "exact header or null"
+${CRM_FIELD_KEYS.map((field) => `    "${field}": null`).join(",\n")}
   }
-}`;
+}
+`;
 }
 
 function sanitizeMapping(mapping, headers) {
@@ -61,17 +66,27 @@ function sanitizeMapping(mapping, headers) {
 
   for (const field of CRM_FIELD_KEYS) {
     const value = mapping?.[field];
+
     sanitized[field] =
-      typeof value === "string" && headerSet.has(value) ? value : null;
+      typeof value === "string" && headerSet.has(value)
+        ? value
+        : null;
   }
 
   return sanitized;
 }
 
-async function getColumnMapping(headers, sampleRows) {
-  const client = getOpenAIClient();
+function parseJson(text) {
+  const cleaned = String(text ?? "")
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
 
-  if (!client) {
+  return JSON.parse(cleaned);
+}
+
+async function getColumnMapping(headers, sampleRows) {
+  if (!isGroqConfigured()) {
     return {
       mapping: buildHeuristicMapping(headers),
       method: "heuristic",
@@ -79,16 +94,12 @@ async function getColumnMapping(headers, sampleRows) {
   }
 
   try {
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3-0324:free",
+    const client = getGroqClient();
+
+    const response = await client.chat.completions.create({
+      model: getGroqModel(),
       temperature: 0,
-      response_format: { type: "json_object" },
       messages: [
-        {
-          role: "system",
-          content:
-            "You map CSV columns to CRM fields. Always respond with valid JSON only.",
-        },
         {
           role: "user",
           content: buildMappingPrompt(headers, sampleRows),
@@ -96,11 +107,17 @@ async function getColumnMapping(headers, sampleRows) {
       ],
     });
 
-    const content = completion.choices[0]?.message?.content;
-    const parsed = JSON.parse(content);
-    const mapping = sanitizeMapping(parsed.mapping, headers);
+    const parsed = parseJson(
+      response.choices[0].message.content
+    );
+
+    const mapping = sanitizeMapping(
+      parsed.mapping,
+      headers
+    );
 
     const hasMappedField = Object.values(mapping).some(Boolean);
+
     if (!hasMappedField) {
       return {
         mapping: buildHeuristicMapping(headers),
@@ -108,9 +125,17 @@ async function getColumnMapping(headers, sampleRows) {
       };
     }
 
-    return { mapping, method: "ai" };
+    return {
+      mapping,
+      method: "groq-column-map",
+    };
   } catch (error) {
-    console.error("AI mapping failed, using heuristic fallback:", error.message);
+    console.error(
+      "Groq column mapping failed. Falling back to heuristic."
+    );
+
+    console.error(error.message);
+
     return {
       mapping: buildHeuristicMapping(headers),
       method: "heuristic-fallback",
@@ -118,4 +143,6 @@ async function getColumnMapping(headers, sampleRows) {
   }
 }
 
-module.exports = { getColumnMapping };
+module.exports = {
+  getColumnMapping,
+};

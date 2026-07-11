@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
+import ThemeToggle from "@/components/theme-toggle";
 
 import { ConfirmImport } from "@/components/confirm-import/ConfirmImport";
 import { CsvPreviewTable } from "@/components/csv-preview/CsvPreviewTable";
@@ -31,12 +32,13 @@ function StepIndicator({ currentStep }) {
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : isComplete
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
-                      : "bg-muted text-muted-foreground"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground"
                 }`}
               >
                 {step.id}
               </span>
+
               <span
                 className={`hidden text-sm sm:inline ${
                   isActive
@@ -47,12 +49,14 @@ function StepIndicator({ currentStep }) {
                 {step.label}
               </span>
             </div>
+
             {index < STEPS.length - 1 && (
               <div
                 className={`mx-2 hidden h-px w-6 sm:mx-3 sm:block sm:w-10 ${
-                  isComplete ? "bg-emerald-300 dark:bg-emerald-800" : "bg-border"
+                  isComplete
+                    ? "bg-emerald-300 dark:bg-emerald-800"
+                    : "bg-border"
                 }`}
-                aria-hidden="true"
               />
             )}
           </li>
@@ -108,40 +112,62 @@ export function ImporterApp() {
   }[step];
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="border-b bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+
+      {/* Header */}
+
+      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
+
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+
           <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Sparkles className="size-4" />
+
+            <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+              <Sparkles className="size-5" />
             </div>
+
             <div>
-              <h1 className="text-base font-semibold leading-none sm:text-lg">
+              <h1 className="text-lg font-bold">
                 GrowEasy AI Importer
               </h1>
-              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+
+              <p className="text-sm text-muted-foreground">
                 Import leads from any CSV into GrowEasy CRM
               </p>
             </div>
+
           </div>
+
+          <ThemeToggle />
+
         </div>
+
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
+      {/* Main */}
+
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+
         <div className="mb-8">
           <StepIndicator currentStep={step} />
         </div>
 
         <div
-          className={`mx-auto space-y-6 ${step >= 2 ? "max-w-full" : "max-w-2xl"}`}
+          className={`mx-auto space-y-6 ${
+            step >= 2 ? "max-w-full" : "max-w-2xl"
+          }`}
         >
+
           <div className="text-center">
-            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
+
+            <h2 className="text-2xl font-bold tracking-tight">
               {heading.title}
             </h2>
-            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+
+            <p className="mt-2 text-muted-foreground">
               {heading.description}
             </p>
+
           </div>
 
           {step === 1 && (
@@ -167,11 +193,17 @@ export function ImporterApp() {
                 rows={csvData.rows}
                 rowCount={csvData.rowCount}
               />
+
               <div className="flex justify-end">
-                <Button onClick={() => setStep(3)} className="min-w-[200px]">
-                  Continue to confirm
-                  <ArrowRight data-icon="inline-end" />
+
+                <Button
+                  onClick={() => setStep(3)}
+                  className="min-w-[220px]"
+                >
+                  Continue to Confirm
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+
               </div>
             </>
           )}
@@ -186,24 +218,46 @@ export function ImporterApp() {
           )}
 
           {step === 4 && importResult && (
-            <ParsedResultView result={importResult} onReset={handleClear} />
+            <ParsedResultView
+              result={importResult}
+              onReset={handleClear}
+            />
           )}
 
           {step === 1 && (
-            <div className="rounded-xl border bg-muted/30 p-4 sm:p-5">
-              <p className="text-sm font-medium">Supported sources</p>
-              <ul className="mt-2 grid gap-1.5 text-sm text-muted-foreground sm:grid-cols-2">
-                <li>Facebook Lead Export</li>
-                <li>Google Ads Export</li>
-                <li>Excel / Google Sheets</li>
-                <li>Real Estate CRM exports</li>
-                <li>Sales & marketing reports</li>
-                <li>Custom spreadsheets</li>
+            <div className="rounded-xl border bg-muted/40 p-5">
+
+              <h3 className="font-semibold">
+                Supported Sources
+              </h3>
+
+              <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+
+                <li>✅ Facebook Lead Export</li>
+
+                <li>✅ Google Ads Export</li>
+
+                <li>✅ Excel / Google Sheets</li>
+
+                <li>✅ Real Estate CRM Exports</li>
+
+                <li>✅ Sales Reports</li>
+
+                <li>✅ Marketing Agency CSVs</li>
+
+                <li>✅ CRM Exports</li>
+
+                <li>✅ Custom Spreadsheets</li>
+
               </ul>
+
             </div>
           )}
+
         </div>
+
       </main>
+
     </div>
   );
 }
